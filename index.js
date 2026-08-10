@@ -1,26 +1,33 @@
+require('dotenv').config();
+
 const express = require('express');
-const app = express();
-const port = 3000;
+const fs = require('fs');
+const path = require('path');
 const db = require('./models');
 
-// 1. Import router dari routes/api.js
+const app = express();
+const port = process.env.PORT || 3000;
+
+// pastikan folder uploads ada (multer tidak membuatnya otomatis)
+const uploadDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
+
 const apiRouter = require('./routes/api');
 
-// 2. Middleware parser untuk JSON dan URL-encoded request body
 app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+app.use(express.urlencoded({ extended: true }));
 
-// 3. Pasang router dengan prefix '/api'
-// Ini yang menghubungkan endpoint seperti /api/register dan /api/komik
+app.use('/uploads', express.static(uploadDir));
 app.use('/api', apiRouter);
 
-// 4. Sinkronisasi database Sequelize & Jalankan Server
+// handler error multer / fileFilter
+app.use((err, req, res, next) => {
+  if (err) return res.status(400).json({ message: err.message });
+  next();
+});
+
 db.sequelize.sync()
   .then(() => {
-    app.listen(port, () => {
-      console.log(`Server is running on port ${port}`);
-    });
+    app.listen(port, () => console.log(`Server is running on port ${port}`));
   })
-  .catch((err) => {
-    console.error('Failed to sync database:', err);
-  });
+  .catch((err) => console.error('Failed to sync database:', err));
